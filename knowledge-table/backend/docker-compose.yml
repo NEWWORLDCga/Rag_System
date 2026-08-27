@@ -1,0 +1,37 @@
+version: '3.8'
+
+services:
+  api:
+    build: 
+      context: .
+      dockerfile: src/Dockerfile
+    # 改为 8001，避免与主项目（8000）冲突
+    command: uvicorn app.main:app --reload --workers 1 --host 0.0.0.0 --port 8000
+    volumes:
+      - ./src:/usr/src/app/src
+      - ./pyproject.toml:/usr/src/app/pyproject.toml
+    # 映射到主机 8001，容器内部仍是 8000
+    ports:
+      - "8001:8000"
+    environment:
+      - ENVIRONMENT=dev
+      - TESTING=0
+    env_file:
+      - .env
+    # 加入主项目的 kb-net 网络，直接用容器名访问 PG 和 Milvus
+    networks:
+      - kb-net
+    extra_hosts:
+      # 备用：Windows/Mac 开发时可通过 host.docker.internal 访问主机服务
+      - "host.docker.internal:host-gateway"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+networks:
+  kb-net:
+    name: ai_agent_test_kb-net
+    external: true
